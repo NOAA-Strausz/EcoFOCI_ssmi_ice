@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Mon Jun 25 15:48:39 2018
@@ -9,17 +9,19 @@ Created on Mon Jun 25 15:48:39 2018
 #following procedure laid out on this website:
 #https://geoinformaticstutorial.blogspot.com/2014/02/reading-binary-data-nsidc-sea-ice.html
 
-import gdal
-import struct
+#import gdal
+#import struct
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
-filename = sys.argv[1]
+#filename = sys.argv[1]
+filename='nt_20180402_f18_nrt_n.bin'
 
-print "Processing file: "
-print filename
+print("Processing file: ")
+print(filename)
 
 
 #height and width of files
@@ -38,7 +40,7 @@ np.savetxt("test.csv", ice)
 ice[ice >= 253] = 0
 ice = ice/10
 pixels_with_ice = np.count_nonzero(ice)
-
+#df = pd.DataFrame(ice, columns='ice')
 
 
 icefile.close()
