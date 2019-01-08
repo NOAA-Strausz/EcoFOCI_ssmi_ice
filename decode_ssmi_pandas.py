@@ -23,7 +23,7 @@ date = dt.datetime.strptime(date,"%m/%d/%Y")
 file_prefix=date.strftime("%Y_%j")
 ice = np.fromfile(icefile,dtype=np.uint8)
 ice[ice >= 253] = 0
-ice = ice/10
+ice = ice/2.5
 
 #decode the latfile
 lats_file = open(latfile, 'rb')
