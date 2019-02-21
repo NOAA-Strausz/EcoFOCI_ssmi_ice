@@ -21,24 +21,35 @@ import sys
 
 data_file=sys.argv[1]
 #data_file='nt_20180402_f18_nrt_n.bin'
-latfile='/home/dave/workstuff/github/EcoFOCI_ssmi_ice/psn25lats_v3.dat'
-lonfile='/home/dave/workstuff/github/EcoFOCI_ssmi_ice/psn25lons_v3.dat'
+latfile='psn25lats_v3.dat'
+lonfile='psn25lons_v3.dat'
 
 def decode_datafile(filename):
+    prefix = filename[:2] #determine if it's nrt or bootstrap from filename prefix
     icefile = open(filename, 'rb')
-    #remove the header
-    icefile.seek(300)
-    ice = np.fromfile(icefile,dtype=np.uint8)
-    ice[ice >= 253] = 0
-    ice = ice/2.5
+    
+    if prefix == 'nt':
+        #remove the header
+        icefile.seek(300)
+        ice = np.fromfile(icefile,dtype=np.uint8)
+        ice[ice >= 253] = 0
+        ice = ice/2.5
+    elif prefix == 'bt':
+        print(prefix)
+        ice = np.fromfile(icefile,dtype=np.uint16)
+        ice = ice/10.
+        ice[ice == 110] = 0 #110 is land
+        ice[ice == 120] = 100 #120 is polar hole
+    else: 
+        ice=np.nan
+    
     return ice;
 
 def get_date(filename):
-    icefile = open(filename, 'rb')
-    header = icefile.read(300)
-    #the date is located btw the following bytes
-    date = date=header[219:229].decode() #gets date from header
-    date = dt.datetime.strptime(date,"%m/%d/%Y")
+    #gets date from filename
+    date = filename[3:10]
+    date = dt.datetime.strptime(date,"%Y%m%d")
+    print(date)
     return date;
 
 def decode_latlon(filename):
@@ -79,11 +90,11 @@ def make_map(projection=ccrs.PlateCarree()):
 
 #download land mask
 # 50m is a good balance between dataset size and land feature resolution
-#land_50m = cfeature.NaturalEarthFeature('physical', 'land', '50m',
-#                                        edgecolor='face',
-#                                        facecolor=cfeature.COLORS['land'])
+land_50m = cfeature.NaturalEarthFeature('physical', 'land', '50m',
+                                        edgecolor='face',
+                                        facecolor=cfeature.COLORS['land'])
 
-bath_50m = cfeature.NaturalEarthFeature('raster', 'OB_50M', '50m')
+#bath_50m = cfeature.NaturalEarthFeature('raster', 'OB_50M', '50m')
 #                                        edgecolor='face',
 #                                        facecolor=cfeature.COLORS['water'])
 
@@ -125,7 +136,11 @@ xi, yi = np.meshgrid(xi, yi)
 x, y, z = df.longitude.values, df.latitude.values, df.ice_conc.values
 zi = interpolate.griddata((x, y),z, (xi, yi), method='linear')
 
-extent = [160, 222, 50, 75]
+c2_lat=71.22
+c2_lon=180-164.25+180
+
+#zooms in on chukchi
+extent = [180, 210, 64, 73]
 projection=ccrs.LambertConformal(central_longitude=200.0)
 transformation=ccrs.PlateCarree()
 fig, ax = make_map(projection=projection)
@@ -133,12 +148,12 @@ fig, ax = make_map(projection=projection)
 #ax.plot(df.longitude.values,df.latitude.values,'k.',markersize=.25,transform=transformation)
 cm=ax.pcolormesh(xi,yi,zi,transform=transformation,cmap=cmocean.cm.ice, vmin=0, vmax=100)
 plt.colorbar(cm)
-ax.stock_img()
-#ax.add_feature(land_50m)
-#ax.add_feature(bath_50m)
+#ax.stock_img()
+ax.add_feature(land_50m)
 ax.coastlines(resolution='50m')
+ax.plot(c2_lon, c2_lat, 'r.', transform=transformation)
 ax.set_extent(extent)
-plot_title="Ice Concentration: "+file_date.strftime("%Y-%m-%d")
+plot_title="C2 Ice Concentration: "+file_date.strftime("%Y-%m-%d")
 t = fig.suptitle(plot_title)
 filename=filename_prefix + '_ice_plot'
 fig.savefig(filename)
