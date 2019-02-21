@@ -45,7 +45,6 @@ def decode_datafile(filename):
         ice[ice >= 253] = 0
         ice = ice/2.5
     elif prefix == 'bt':
-        print(prefix)
         ice = np.fromfile(icefile,dtype=np.uint16)
         ice = ice/10.
         ice[ice == 110] = 0 #110 is land
@@ -59,7 +58,6 @@ def get_date(filename):
     #gets date from filename
     date = filename[3:11]
     date = dt.datetime.strptime(date,"%Y%m%d")
-    print(date)
     return date;
 
 def decode_latlon(filename):
