@@ -18,8 +18,18 @@ from scipy import interpolate
 from matplotlib.mlab import griddata
 import cmocean
 import sys
+import argparse
 
-data_file=sys.argv[1]
+parser = argparse.ArgumentParser(description='Decode binary SSMI satellite data')
+parser.add_argument('infile', 
+    metavar='infile', 
+    type=str,
+    help='full path to input file')
+
+args=parser.parse_args()
+
+
+#data_file=sys.argv[1]
 #data_file='nt_20180402_f18_nrt_n.bin'
 latfile='psn25lats_v3.dat'
 lonfile='psn25lons_v3.dat'
@@ -47,7 +57,7 @@ def decode_datafile(filename):
 
 def get_date(filename):
     #gets date from filename
-    date = filename[3:10]
+    date = filename[3:11]
     date = dt.datetime.strptime(date,"%Y%m%d")
     print(date)
     return date;
@@ -58,12 +68,14 @@ def decode_latlon(filename):
     output = output/100000.0
     return output;
 
-data={'latitude':decode_latlon(latfile), 'longitude':decode_latlon(lonfile),
-      'ice_conc':decode_datafile(data_file)}
-df=pd.DataFrame(data)
-
-file_date=get_date(data_file)
-filename_prefix=file_date.strftime("%Y_%m_%d")
+if args.infile:        
+    data_file=args.infile
+    data={'latitude':decode_latlon(latfile), 'longitude':decode_latlon(lonfile),
+          'ice_conc':decode_datafile(data_file)}
+    df=pd.DataFrame(data)
+    
+    file_date=get_date(data_file)
+    filename_prefix=file_date.strftime("%Y_%m_%d")
 
 ### set a range of lats and lons
 # not advised as this messes with gridding assumptions later
@@ -136,6 +148,7 @@ xi, yi = np.meshgrid(xi, yi)
 x, y, z = df.longitude.values, df.latitude.values, df.ice_conc.values
 zi = interpolate.griddata((x, y),z, (xi, yi), method='linear')
 
+#adds point on map
 c2_lat=71.22
 c2_lon=180-164.25+180
 
