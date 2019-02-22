@@ -36,8 +36,8 @@ args=parser.parse_args()
 
 #data_file=sys.argv[1]
 #data_file='nt_20180402_f18_nrt_n.bin'
-#these are the files that contain the lats and lons. Obtained from NASA
-#website
+#these are the files that contain the lats and lons. Obtained from here:
+#ftp://sidads.colorado.edu/pub/DATASETS/seaice/polar-stereo/tools/
 latfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lats_v3.dat'
 lonfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lons_v3.dat'
 
