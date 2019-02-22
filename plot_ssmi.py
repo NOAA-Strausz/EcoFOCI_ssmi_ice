@@ -25,17 +25,26 @@ parser.add_argument('infile',
     metavar='infile', 
     type=str,
     help='full path to input file')
+parser.add_argument('-m', '--mooring', nargs=1, 
+                    help='add mooring location, ie ck1-ck4 or bs2-bs8 or all')
+parser.add_argument('-ex', '--extents', nargs=1,
+                    help='chooses extents of map, options are bering, chukchi, and default')
+
 
 args=parser.parse_args()
 
 
 #data_file=sys.argv[1]
 #data_file='nt_20180402_f18_nrt_n.bin'
-latfile='psn25lats_v3.dat'
-lonfile='psn25lons_v3.dat'
+#these are the files that contain the lats and lons. Obtained from NASA
+#website
+latfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lats_v3.dat'
+lonfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lons_v3.dat'
 
 def decode_datafile(filename):
-    prefix = filename[:2] #determine if it's nrt or bootstrap from filename prefix
+    #determine if it's nrt or bootstrap from filename prefix
+    #note that we remove path first if it exists
+    prefix = filename.split('/')[-1:][0][:2] 
     icefile = open(filename, 'rb')
     
     if prefix == 'nt':
@@ -56,6 +65,8 @@ def decode_datafile(filename):
 
 def get_date(filename):
     #gets date from filename
+    #first remove path from filename if it is there
+    filename = filename.split('/')[-1:][0]
     date = filename[3:11]
     date = dt.datetime.strptime(date,"%Y%m%d")
     return date;
@@ -147,11 +158,23 @@ x, y, z = df.longitude.values, df.latitude.values, df.ice_conc.values
 zi = interpolate.griddata((x, y),z, (xi, yi), method='linear')
 
 #adds point on map
-c2_lat=71.22
-c2_lon=180-164.25+180
+#dictinary of mooring locations
+moorings = {'ck1': [70.838,163.125], 'ck2': [71.231,164.223], 'ck3': [71.828,166.070],
+            'ck4': [71.038,160.514], 'bs2': [56.869,164.050], 'bs4': [57.895,168.878],
+            'bs5': [59.911,171.731], 'bs8': [62.194,174.688]}
 
-#zooms in on chukchi
-extent = [180, 210, 64, 73]
+
+
+#dictionary for various extents of map
+
+extent = {'chukchi': [180, 210, 64, 73], 'bering': [174,206,51,66], 
+          'default': [165,220,50,75]}
+
+if args.extents:
+    map_extents=extent[args.extents[0]]
+else:
+    map_extents=extent['default']
+    
 projection=ccrs.LambertConformal(central_longitude=200.0)
 transformation=ccrs.PlateCarree()
 fig, ax = make_map(projection=projection)
@@ -162,9 +185,33 @@ plt.colorbar(cm)
 #ax.stock_img()
 ax.add_feature(land_50m)
 ax.coastlines(resolution='50m')
-ax.plot(c2_lon, c2_lat, 'r.', transform=transformation)
-ax.set_extent(extent)
-plot_title="C2 Ice Concentration: "+file_date.strftime("%Y-%m-%d")
+plot_title="Ice Concentration: "+file_date.strftime("%Y-%m-%d")
+if args.mooring:
+    if args.mooring[0] == 'all':
+        for key in moorings:
+            lat = moorings[key][0]
+            lon = 360-moorings[key][1]
+            ax.plot(lon, lat, 'r.', transform=transformation)
+            plot_title = key.swapcase() + ' ' + plot_title
+            label = key.swapcase()
+            label_lat = lat
+            label_lon = lon
+            ax.text(label_lon, label_lat, label, horizontalalignment='right', 
+                    verticalalignment='bottom', transform=transformation)
+            
+    else:    
+        lat = moorings[args.mooring[0]][0]
+        lon = 360-moorings[args.mooring[0]][1]
+        ax.plot(lon, lat, 'r.', transform=transformation)
+        plot_title = args.mooring[0].swapcase() + ' ' + plot_title
+        label = args.mooring[0].swapcase()
+        label_lat = lat
+        label_lon = lon
+        ax.text(label_lon, label_lat, label, horizontalalignment='right', 
+                verticalalignment='bottom', transform=transformation)
+        
+    
+ax.set_extent(map_extents)
 t = fig.suptitle(plot_title)
 filename=filename_prefix + '_ice_plot'
 fig.savefig(filename)
