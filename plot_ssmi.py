@@ -19,6 +19,8 @@ from matplotlib.mlab import griddata
 import cmocean
 import sys
 import argparse
+import matplotlib.ticker as mticker
+import cartopy.mpl.ticker as cticker
 
 parser = argparse.ArgumentParser(description='Decode binary SSMI satellite data')
 parser.add_argument('infile', 
@@ -28,7 +30,7 @@ parser.add_argument('infile',
 parser.add_argument('-m', '--mooring', nargs=1, 
                     help='add mooring location, ie ck1-ck4 or bs2-bs8 or all')
 parser.add_argument('-ex', '--extents', nargs=1,
-                    help='chooses extents of map, options are bering, chukchi, and default')
+                    help='chooses extents of map, options are bering, chukchi, custom, and default')
 
 
 args=parser.parse_args()
@@ -75,6 +77,7 @@ def decode_latlon(filename):
     latlon_file = open(filename, 'rb')
     output = np.fromfile(latlon_file,dtype='<i4')
     output = output/100000.0
+    output = int(x * 1000)/1000 #sets decimal place at 3 without rounding
     return output;
 
 if args.infile:        
@@ -98,7 +101,8 @@ if args.infile:
 #df.drop(df.loc[df['ice_conc']==0].index, inplace=True)
 # or
 df['ice_conc'][df['ice_conc']==0] = np.nan
-
+#df['ice_conc'][df['ice_conc']<100] = np.nan
+#df['ice_conc'][df['ice_conc']<0] = np.nan
 def make_map(projection=ccrs.PlateCarree()):
     fig, ax = plt.subplots(figsize=(10.5, 7),
                            subplot_kw=dict(projection=projection))
@@ -143,6 +147,7 @@ land_50m = cfeature.NaturalEarthFeature('physical', 'land', '50m',
 #many columns will lead to oversampling so .25x.25 is probably the highest I would go
 
 numcols, numrows = 360*4, 90*4
+
 xi = np.linspace(df.longitude.min(), df.longitude.max(), numcols)
 yi = np.linspace(df.latitude.min(), df.latitude.max(), numrows)
 xi, yi = np.meshgrid(xi, yi)
@@ -168,14 +173,16 @@ moorings = {'ck1': [70.838,163.125], 'ck2': [71.231,164.223], 'ck3': [71.828,166
 #dictionary for various extents of map
 
 extent = {'chukchi': [180, 210, 64, 73], 'bering': [174,206,51,66], 
-          'default': [165,220,50,75]}
+          'default': [165,220,50,75],'custom':[180,228,68.25,77.25]} #adjust custom to desired extents
 
 if args.extents:
     map_extents=extent[args.extents[0]]
 else:
     map_extents=extent['default']
     
-projection=ccrs.LambertConformal(central_longitude=200.0)
+#projection=ccrs.LambertConformal(central_longitude=200.0)
+projection=ccrs.Mercator(central_longitude=180)
+#projection=ccrs.PlateCarree(central_longitude=200.0)
 transformation=ccrs.PlateCarree()
 fig, ax = make_map(projection=projection)
 
@@ -209,9 +216,54 @@ if args.mooring:
         label_lon = lon
         ax.text(label_lon, label_lat, label, horizontalalignment='right', 
                 verticalalignment='bottom', transform=transformation)
+
+
+#attempt at making gridlines with cartopy stuff, doesn't work that well
+#gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+#                  linewidth=1, color='gray', alpha=0.5, linestyle='-')
+#gl.xlabels_top = False
+#gl.xlabels_bottom = True
+#gl.ylabels_right = False
+#gl.xlines = True
+#gl.ylines = True
+#gl.xformatter = LONGITUDE_FORMATTER
+#gl.yformatter = LATITUDE_FORMATTER
+
+
         
-    
+#ax.set_xticks([178, -178, -174, -170, -166, -162], crs=ccrs.PlateCarree())
+#ax.set_xticklabels([178, -178, -174, -170, -166, -162])
+#ax.set_yticks([55, 57, 59, 61, 63, 65], crs=ccrs.PlateCarree())
+#ax.set_yticklabels([55, 57, 59, 61, 63, 65])
+#lon_formatter = cticker.LongitudeFormatter()
+#lat_formatter = cticker.LatitudeFormatter()
+#ax.xaxis.set_major_formatter(lon_formatter)
+#ax.yaxis.set_major_formatter(lat_formatter)
+#ax.grid(linewidth=1, color='black', alpha=0.5, linestyle='-')
+        
+
+#use following to make ticks and grid if needed
+#ax.set_xticks([-174, -168, -162, -156, -150, -144, -138, -132], crs=ccrs.PlateCarree())
+#ax.set_xticklabels([-174, -168, -162, -156, -150, -144, -138, -132])
+#ax.set_yticks([69.0, 70.5, 72.0, 73.5, 75.0, 76.5], crs=ccrs.PlateCarree())
+#ax.set_yticklabels([69.0, 70.5, 72.0, 73.5, 75.0, 76.5])
+#lon_formatter = cticker.LongitudeFormatter()
+#lat_formatter = cticker.LatitudeFormatter()
+#ax.xaxis.set_major_formatter(lon_formatter)
+#ax.yaxis.set_major_formatter(lat_formatter)
+#ax.grid(linewidth=1, color='black', alpha=0.5, linestyle='-')
+        
 ax.set_extent(map_extents)
 t = fig.suptitle(plot_title)
 filename=filename_prefix + '_ice_plot'
 fig.savefig(filename)
+
+#gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+#                  linewidth=2, color='gray', alpha=0.5, linestyle='--')
+#gl.xlabels_top = False
+#gl.xlabels_bottom = False
+#gl.ylabels_right = False
+#gl.xlines = False
+#gl.ylines = False
+#gl.xformatter = LONGITUDE_FORMATTER
+#gl.yformatter = LATITUDE_FORMATTER
