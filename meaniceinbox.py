@@ -20,6 +20,10 @@ parser.add_argument('-latlon', '--latlon', nargs=2,
                     help='latitude and longitude of desired point')
 parser.add_argument('-y', '--years', nargs=2, help='year range ie "2015 2019"', 
                     type=int)
+parser.add_argument('-d', '--distance', nargs=1, help='size of box around point', 
+                    type=float)
+parser.add_argument('-n', '--nm', help='use nautical miles instead of km',
+                    action="store_true")
 args=parser.parse_args()
 
 latfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lats_v3.dat'
@@ -104,7 +108,7 @@ def find_box(lat1, lon1, dist, nm):
 #put desired years in list
     
 nlat, slat, wlon, elon = find_box(float(args.latlon[0]), 
-                                  float(args.latlon[1]), 26, nm=False)
+                                  float(args.latlon[1]), args.distance[0], nm=args.nm)
 years = list(range(args.years[0],args.years[1]+1))
 files = []
 
