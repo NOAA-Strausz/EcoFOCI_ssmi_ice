@@ -24,6 +24,8 @@ parser.add_argument('-d', '--distance', nargs=1, help='size of box around point'
                     type=float)
 parser.add_argument('-n', '--nm', help='use nautical miles instead of km',
                     action="store_true")
+parser.add_argument('-r', '--radius', help='use circle of radius 'r' instead of box',
+                    action="store_true")
 args=parser.parse_args()
 
 latfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lats_v3.dat'
@@ -76,6 +78,9 @@ def decode_latlon(filename):
 
 def find_box(lat1, lon1, dist, nm):
     
+    #formula pulled from this website:
+    #http://www.movable-type.co.uk/scripts/latlong.html
+    
     if nm:
         r=3440
     else:
@@ -98,10 +103,10 @@ def find_box(lat1, lon1, dist, nm):
                      math.cos(math.radians(lat1)) * math.sin(dist/r) * 
                      math.cos(math.radians(180)))
     
-    wlon = round(math.degrees(wlon), 3)
-    elon = round(math.degrees(elon), 3)
-    nlat = round(math.degrees(nlat), 3)
-    slat = round(math.degrees(slat), 3)
+    wlon = round(math.degrees(wlon), 4)
+    elon = round(math.degrees(elon), 4)
+    nlat = round(math.degrees(nlat), 4)
+    slat = round(math.degrees(slat), 4)
     
     return([nlat,slat,wlon,elon])
 
@@ -120,6 +125,9 @@ for i in years:
     else:
         path = nrt
         files = files + glob.glob(path + '*' + year + '*.bin')
+
+output_date = []
+output_ice = []
         
 for i in files:
     #print('decoding filename: ' + i)
@@ -129,6 +137,24 @@ for i in files:
     df_ice_chopped = df_ice[(df_ice.latitude <= nlat) & (df_ice.latitude >= slat) & 
                             (df_ice.longitude >= wlon) & (df_ice.longitude <= elon)]
     date = get_date(i)
-    date_string = date.strftime("%Y,%j")
+    #date_string = date.strftime("%Y,%j")
     ice = df_ice_chopped.ice_conc.mean().round(decimals=1)
-    print(date_string+','+str(ice))
+    #print(date_string+','+str(ice))
+    output_date.append(date)
+    output_ice.append(ice)
+
+data = {'date':output_date, 'ice_concentration': output_ice}
+df = pd.DataFrame(data)
+df.set_index(['date'], inplace=True)
+years = df.groupby(df.index.year)
+
+output={'doy':range(1,367)}
+for name, group in years:
+    year = str(name)
+    output[year] = list(group.ice_concentration)
+    
+    
+df_out = pd.DataFrame.from_dict(output, orient='index').transpose()
+filename = ("meaniceinbox_" + args.latlon[0] + "_" + args.latlon[1] + "_" 
+            + str(args.years[0]) + "-" + str(args.years[1]) + ".csv")
+df_out.to_csv(filename, index=False)
