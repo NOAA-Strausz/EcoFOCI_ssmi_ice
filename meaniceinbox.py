@@ -17,7 +17,7 @@ import math
 
 parser = argparse.ArgumentParser(description='Get ice concentration around a point')
 parser.add_argument('-latlon', '--latlon', nargs=2, 
-                    help='latitude and longitude of desired point')
+                    help='latitude and longitude of desired point', type=float)
 parser.add_argument('-y', '--years', nargs=2, help='year range ie "2015 2019"', 
                     type=int)
 parser.add_argument('-d', '--distance', nargs=1, help='size of box around point', 
@@ -112,8 +112,8 @@ def find_box(lat1, lon1, dist, nm):
 
 #put desired years in list
     
-nlat, slat, wlon, elon = find_box(float(args.latlon[0]), 
-                                  float(args.latlon[1]), args.distance[0], nm=args.nm)
+nlat, slat, wlon, elon = find_box(args.latlon[0], 
+                                  args.latlon[1], args.distance[0], nm=args.nm)
 years = list(range(args.years[0],args.years[1]+1))
 files = []
 
@@ -146,15 +146,35 @@ for i in files:
 data = {'date':output_date, 'ice_concentration': output_ice}
 df = pd.DataFrame(data)
 df.set_index(['date'], inplace=True)
-years = df.groupby(df.index.year)
+years_grouped = df.groupby(df.index.year)
 
+dummy_list = []
 output={'doy':range(1,367)}
-for name, group in years:
+for name, group in years_grouped:
     year = str(name)
-    output[year] = list(group.ice_concentration)
+    if name <= 1988:
+        group = group.resample('d').mean()
+        if name == 1978:
+            dummy_list = [np.nan]*304
+        elif name in [1979, 1982, 1984, 1985, 1987]:
+            dummy_list = [np.nan]
+        elif name == 1988:
+            dummy_list = [np.nan]*13
+        else:
+            dummy_list = []
+        output[year] = dummy_list + list(group.ice_concentration)
+    else:
+        output[year] = list(group.ice_concentration)
     
     
 df_out = pd.DataFrame.from_dict(output, orient='index').transpose()
-filename = ("meaniceinbox_" + args.latlon[0] + "_" + args.latlon[1] + "_" 
-            + str(args.years[0]) + "-" + str(args.years[1]) + ".csv")
+#get longiude suffix, assum lat is north
+lat_suffix = 'N'
+if args.years[1] < 0:
+    lon_suffix = 'W'
+else:
+    lon_suffix = 'E'
+filename = ("meaniceinbox_" + str(args.latlon[0]) + lat_suffix + "_" + 
+            str(abs(args.latlon[1])) + lon_suffix + "_" + str(args.years[0]) + 
+            "-" + str(args.years[1]) + ".csv")
 df_out.to_csv(filename, index=False)
