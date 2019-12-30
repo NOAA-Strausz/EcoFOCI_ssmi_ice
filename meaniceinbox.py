@@ -12,6 +12,7 @@ import numpy as np
 import datetime as dt
 import pandas as pd
 import math
+import sys
 
 
 
@@ -26,6 +27,8 @@ parser.add_argument('-n', '--nm', help='use nautical miles instead of km',
                     action="store_true")
 parser.add_argument('-r', '--radius', help='use circle of radius 'r' instead of box',
                     action="store_true")
+parser.add_argument('-m', '--mooring', help='Mooring name, choose from ck1-9, or bs2-8')
+                                        
 args=parser.parse_args()
 
 latfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lats_v3.dat'
@@ -35,6 +38,25 @@ bootstrap = '/home/akutan/strausz/ssmi_ice/data/bootstrap/'
 nrt = '/home/akutan/strausz/ssmi_ice/data/nrt/'
 #latest available bootstrap year
 boot_year = 2018
+#mooring locaitons taken from 'https://www.pmel.noaa.gov/foci/foci_moorings/mooring_info/mooring_location_info.html'
+moorings = {'bs2':[56.869,-164.050], 'bs4':[57.895,-168.878], 'bs5':[59.911,-171.73],
+         'bs8':[62.194,-174.688], 'ck1':[70.838,-163.125], 'ck2':[71.231,-164.223],
+         'ck3':[71.828,-166.070], 'ck4':[71.038,-160.514], 'ck5':[71.203,-158.011],
+         'ck9':[72.464,-156.548], 'ck10':[70.211,-167.787],
+         'ck11':[70.013,-166.855], 'ck12':[67.911,-168.195]}
+
+if args.mooring:
+    if args.mooring in moorings:
+        inlat = moorings[args.mooring][0]
+        inlon = moorings[args.mooring][1]
+    else:
+        sys.exit("Mooring not listed")
+    mooring = args.mooring + "_"
+else:
+    inlat = args.latlon[0]
+    inlon = args.latlon[1]
+    mooring = ''
+        
 
 def decode_datafile(filename):
     #determine if it's nrt or bootstrap from filename prefix
@@ -112,8 +134,7 @@ def find_box(lat1, lon1, dist, nm):
 
 #put desired years in list
     
-nlat, slat, wlon, elon = find_box(args.latlon[0], 
-                                  args.latlon[1], args.distance[0], nm=args.nm)
+nlat, slat, wlon, elon = find_box(inlat, inlon, args.distance[0], nm=args.nm)
 years = list(range(args.years[0],args.years[1]+1))
 files = []
 
@@ -174,7 +195,7 @@ if args.years[1] < 0:
     lon_suffix = 'W'
 else:
     lon_suffix = 'E'
-filename = ("meaniceinbox_" + str(args.latlon[0]) + lat_suffix + "_" + 
-            str(abs(args.latlon[1])) + lon_suffix + "_" + str(args.years[0]) + 
+filename = ("meaniceinbox_" + mooring + str(inlat) + lat_suffix + "_" + 
+            str(abs(inlon)) + lon_suffix + "_" + str(args.years[0]) + 
             "-" + str(args.years[1]) + ".csv")
 df_out.to_csv(filename, index=False)
