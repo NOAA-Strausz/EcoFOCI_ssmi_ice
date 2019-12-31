@@ -13,7 +13,7 @@ import datetime as dt
 import pandas as pd
 import math
 import sys
-
+from haversine import haversine
 
 
 parser = argparse.ArgumentParser(description='Get ice concentration around a point')
@@ -21,11 +21,11 @@ parser.add_argument('-latlon', '--latlon', nargs=2,
                     help='latitude and longitude of desired point', type=float)
 parser.add_argument('-y', '--years', nargs=2, help='year range ie "2015 2019"', 
                     type=int)
-parser.add_argument('-d', '--distance', nargs=1, help='size of box around point', 
+parser.add_argument('-d', '--distance', help='size of box around point', 
                     type=float)
 parser.add_argument('-n', '--nm', help='use nautical miles instead of km',
                     action="store_true")
-parser.add_argument('-r', '--radius', help='use circle of radius 'r' instead of box',
+parser.add_argument('-r', '--radius', help='use distance as radius around point instead of box',
                     action="store_true")
 parser.add_argument('-m', '--mooring', help='Mooring name, choose from ck1-9, or bs2-8')
                                         
@@ -56,7 +56,11 @@ else:
     inlat = args.latlon[0]
     inlon = args.latlon[1]
     mooring = ''
-        
+
+if args.nm:
+    units = 'nm'
+else:
+    units = 'km'
 
 def decode_datafile(filename):
     #determine if it's nrt or bootstrap from filename prefix
@@ -132,9 +136,14 @@ def find_box(lat1, lon1, dist, nm):
     
     return([nlat,slat,wlon,elon])
 
-#put desired years in list
     
-nlat, slat, wlon, elon = find_box(inlat, inlon, args.distance[0], nm=args.nm)
+if args.radius:
+    nlat, slat, wlon, elon = find_box(inlat, inlon, 2*args.distance, nm=args.nm)
+    dist_type = 'Radius'
+else:
+    nlat, slat, wlon, elon = find_box(inlat, inlon, args.distance, nm=args.nm)
+    dist_type = 'Box'
+#put desired years in list
 years = list(range(args.years[0],args.years[1]+1))
 files = []
 
@@ -158,6 +167,11 @@ for i in files:
     df_ice_chopped = df_ice[(df_ice.latitude <= nlat) & (df_ice.latitude >= slat) & 
                             (df_ice.longitude >= wlon) & (df_ice.longitude <= elon)]
     date = get_date(i)
+    if args.radius:
+        fn = lambda x: haversine((inlat, inlon),(x.latitude,x.longitude))
+        distance = df_ice_chopped.apply(fn, axis=1)
+        df_ice_chopped = df_ice_chopped.assign(dist=distance.values)
+        df_ice_chopped = df_ice_chopped.loc[df_ice_chopped.dist < args.distance]        
     #date_string = date.strftime("%Y,%j")
     ice = df_ice_chopped.ice_conc.mean().round(decimals=1)
     #print(date_string+','+str(ice))
@@ -196,6 +210,6 @@ if args.years[1] < 0:
 else:
     lon_suffix = 'E'
 filename = ("meaniceinbox_" + mooring + str(inlat) + lat_suffix + "_" + 
-            str(abs(inlon)) + lon_suffix + "_" + str(args.years[0]) + 
-            "-" + str(args.years[1]) + ".csv")
+            str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + 
+            "_" + dist_type + "_" + str(args.years[0]) + "-" + str(args.years[1]) + ".csv")
 df_out.to_csv(filename, index=False)
