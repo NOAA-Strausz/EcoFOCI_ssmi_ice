@@ -28,6 +28,8 @@ parser.add_argument('-n', '--nm', help='use nautical miles instead of km',
 parser.add_argument('-r', '--radius', help='use distance as radius around point instead of box',
                     action="store_true")
 parser.add_argument('-m', '--mooring', help='Mooring name, choose from ck1-9, or bs2-8')
+parser.add_argument('-v', '--verbose', help='Print some details while processing files',
+                    action="store_true")
                                         
 args=parser.parse_args()
 
@@ -175,6 +177,10 @@ for i in files:
     #date_string = date.strftime("%Y,%j")
     ice = df_ice_chopped.ice_conc.mean().round(decimals=1)
     #print(date_string+','+str(ice))
+    if args.verbose:
+        print("Working on File: " + i)
+        print("For " + date.strftime("%Y-%m-%d") + " ice concentration was " 
+              + str(ice) + "%")
     output_date.append(date)
     output_ice.append(ice)
 
@@ -209,6 +215,8 @@ if args.years[1] < 0:
     lon_suffix = 'W'
 else:
     lon_suffix = 'E'
+    
+
 filename = ("meaniceinbox_" + mooring + str(inlat) + lat_suffix + "_" + 
             str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + 
             "_" + dist_type + "_" + str(args.years[0]) + "-" + str(args.years[1]) + ".csv")
