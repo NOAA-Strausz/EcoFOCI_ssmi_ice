@@ -18,9 +18,10 @@ from haversine import haversine
 
 parser = argparse.ArgumentParser(description='Get ice concentration around a point')
 parser.add_argument('-latlon', '--latlon', nargs=2, 
-                    help='latitude and longitude of desired point', type=float)
+                    help='latitude and longitude of desired point, W lon must be negative', type=float)
 parser.add_argument('-y', '--years', nargs=2, help='year range ie "2015 2019"', 
                     type=int)
+parser.add_argument('-a', '--name', help='optional name of point', type=str)
 parser.add_argument('-d', '--distance', help='size of box around point', 
                     type=float)
 parser.add_argument('-n', '--nm', help='use nautical miles instead of km',
@@ -63,6 +64,11 @@ if args.nm:
     units = 'nm'
 else:
     units = 'km'
+    
+if args.name:
+    pointname = args.name + "_"
+else:
+    pointname = ''
 
 def decode_datafile(filename):
     #determine if it's nrt or bootstrap from filename prefix
@@ -211,13 +217,13 @@ for name, group in years_grouped:
 df_out = pd.DataFrame.from_dict(output, orient='index').transpose()
 #get longiude suffix, assum lat is north
 lat_suffix = 'N'
-if args.years[1] < 0:
+if args.latlon[1] < 0:
     lon_suffix = 'W'
 else:
     lon_suffix = 'E'
     
 
-filename = ("meaniceinbox_" + mooring + str(inlat) + lat_suffix + "_" + 
+filename = ("meaniceinbox_" + mooring + pointname + str(inlat) + lat_suffix + "_" + 
             str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + 
             "_" + dist_type + "_" + str(args.years[0]) + "-" + str(args.years[1]) + ".csv")
 df_out.to_csv(filename, index=False)
