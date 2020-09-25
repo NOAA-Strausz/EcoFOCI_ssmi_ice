@@ -12,7 +12,7 @@ import datetime as dt
 
 import argparse
 
-parser = argparse.ArgumentParser(description="RUDICS PICO Prawler Data File")
+parser = argparse.ArgumentParser(description="SSMI Ice Binary File")
 parser.add_argument(
     "DataPath",
     metavar="DataPath",
@@ -69,7 +69,7 @@ def decode_latlon(filename):
 
 def decode_area(filename):
     # decode the areafile
-    area_file = open(areafile, "rb")
+    #area_file = open(areafile, "rb")
     area = np.fromfile(areafile, dtype="<i4")
     area = area / 1000.0
     return area
