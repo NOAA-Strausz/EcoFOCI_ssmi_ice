@@ -10,32 +10,83 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-filename='nt_20180402_f18_nrt_n.bin'
-latfile='psn25lats_v3.dat'
-lonfile='psn25lons_v3.dat'
+import argparse
 
-#decode the datafile
-icefile = open(filename, 'rb')
-header = icefile.read(300) #reads first 300 bytes which are the header
-#doy = doy=header[215:218].decode()
-date = date=header[219:229].decode() #gets date from header
-date = dt.datetime.strptime(date,"%m/%d/%Y")
-file_prefix=date.strftime("%Y_%j")
-ice = np.fromfile(icefile,dtype=np.uint8)
-ice[ice >= 253] = 0
-ice = ice/2.5
+parser = argparse.ArgumentParser(description="SSMI Ice Binary File")
+parser.add_argument(
+    "DataPath",
+    metavar="DataPath",
+    type=str,
+    help="full path to binary ssmi ice conc file",
+)
+parser.add_argument(
+    "datasource",
+    metavar="datasource",
+    type=str,
+    help="NRT or Bootstrap",
+)
 
-#decode the latfile
-lats_file = open(latfile, 'rb')
-lats = np.fromfile(latfile,dtype='<i4')
-lats = lats/100000.0
+args = parser.parse_args()
 
-#decode the lonfile
-lons_file = open(lonfile, 'rb')
-lons = np.fromfile(lonfile,dtype='<i4')
-lons= lons/100000.0
+filename = args.DataPath
+latfile = "psn25lats_v3.dat"
+lonfile = "psn25lons_v3.dat"
+areafile = "psn25area_v3.dat"
 
-data={'latitude':lats, 'longitude':lons, 'ice_conc':ice}
-df=pd.DataFrame(data)
 
-df.to_csv(file_prefix+'.csv', index=False)
+def decode_datafile(filename, datasource="NRT"):
+    icefile = open(filename, "rb")
+
+    if datasource is "NRT":
+        # remove the header
+        icefile.seek(300)
+        ice = np.fromfile(icefile, dtype=np.uint8)
+        ice[ice >= 253] = 0
+        ice = ice / 2.5
+    elif datasource is "Bootstrap":
+        # no header
+        ice = np.fromfile(icefile, dtype=np.uint16)
+        ice = ice / 10
+        # following are ingrained data masks... they do not coincide with the documentation
+        # https://nsidc.org/data/nsidc-0079/versions/3
+        ice[ice == 110] = 100  # 110 is polar hole
+        ice[ice == 120] = 0  # 120 is land
+    else:
+        ice = np.nan
+
+    return ice
+
+
+def get_date(filename):
+    icefile = open(filename, "rb")
+    header = icefile.read(300)
+    # the date is located btw the following bytes
+    date = date = header[219:229].decode()  # gets date from header
+    date = dt.datetime.strptime(date, "%m/%d/%Y")
+    return date
+
+
+def decode_latlon(filename):
+    latlon_file = open(filename, "rb")
+    output = np.fromfile(latlon_file, dtype="<i4")
+    output = output / 100000.0
+    return output
+
+
+def decode_area(filename):
+    # decode the areafile
+    #area_file = open(areafile, "rb")
+    area = np.fromfile(areafile, dtype="<i4")
+    area = area / 1000.0
+    return area
+
+
+data = {
+    "latitude": decode_latlon(latfile),
+    "longitude": decode_latlon(lonfile),
+    "grid_area": decode_area(areafile),
+    "ice_conc": decode_datafile(filename, args.datasource),
+}
+df = pd.DataFrame(data)
+
+df.to_csv(filename.replace(".bin", ".csv"), index=False)
