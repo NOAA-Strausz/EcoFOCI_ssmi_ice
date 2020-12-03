@@ -196,7 +196,7 @@ df.set_index(['date'], inplace=True)
 years_grouped = df.groupby(df.index.year)
 
 dummy_list = []
-output={'doy':range(1,367)}
+output={'DOY':range(1,367)}
 for name, group in years_grouped:
     year = str(name)
     if name <= 1988:
@@ -217,7 +217,8 @@ for name, group in years_grouped:
 df_out = pd.DataFrame.from_dict(output, orient='index').transpose()
 #get longiude suffix, assum lat is north
 lat_suffix = 'N'
-if args.latlon[1] < 0:
+
+if inlon < 0:
     lon_suffix = 'W'
 else:
     lon_suffix = 'E'
