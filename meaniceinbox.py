@@ -40,10 +40,10 @@ lonfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lons_v3.dat
 bootstrap = '/home/akutan/strausz/ssmi_ice/data/bootstrap/'
 nrt = '/home/akutan/strausz/ssmi_ice/data/nrt/'
 #latest available bootstrap year
-boot_year = 2018
+boot_year = 2020
 #mooring locaitons taken from 'https://www.pmel.noaa.gov/foci/foci_moorings/mooring_info/mooring_location_info.html'
 moorings = {'bs2':[56.869,-164.050], 'bs4':[57.895,-168.878], 'bs5':[59.911,-171.73],
-         'bs8':[62.194,-174.688], 'ck1':[70.838,-163.125], 'ck2':[71.231,-164.223],
+         'bs8':[62.194,-174.688], 'bs14':[64.00,-167.933], 'ck1':[70.838,-163.125], 'ck2':[71.231,-164.223],
          'ck3':[71.828,-166.070], 'ck4':[71.038,-160.514], 'ck5':[71.203,-158.011],
          'ck9':[72.464,-156.548], 'ck10':[70.211,-167.787],
          'ck11':[70.013,-166.855], 'ck12':[67.911,-168.195]}
@@ -215,6 +215,7 @@ for name, group in years_grouped:
     
     
 df_out = pd.DataFrame.from_dict(output, orient='index').transpose()
+df_out['DOY']=df_out.DOY.astype(int)
 #get longiude suffix, assum lat is north
 lat_suffix = 'N'
 
