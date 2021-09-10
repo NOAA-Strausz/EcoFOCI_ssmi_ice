@@ -195,27 +195,18 @@ df = pd.DataFrame(data)
 df.set_index(['date'], inplace=True)
 years_grouped = df.groupby(df.index.year)
 
-dummy_list = []
-output={'DOY':range(1,367)}
+df_out=pd.DataFrame()
 for name, group in years_grouped:
     year = str(name)
-    if name <= 1988:
-        group = group.resample('d').mean()
-        if name == 1978:
-            dummy_list = [np.nan]*304
-        elif name in [1979, 1982, 1984, 1985, 1987]:
-            dummy_list = [np.nan]
-        elif name == 1988:
-            dummy_list = [np.nan]*13
-        else:
-            dummy_list = []
-        output[year] = dummy_list + list(group.ice_concentration)
-    else:
-        output[year] = list(group.ice_concentration)
+    group.index=group.index.dayofyear
+    group.index.rename("day_of_year", inplace=True)
+    group.rename(columns={"ice_concentration" : year}, inplace=True)
+
+    df_out = pd.concat([df_out,group], axis=1)
     
     
-df_out = pd.DataFrame.from_dict(output, orient='index').transpose()
-df_out['DOY']=df_out.DOY.astype(int)
+#df_out = pd.DataFrame.from_dict(output, orient='index').transpose()
+#df_out['DOY']=df_out.DOY.astype(int)
 #get longiude suffix, assum lat is north
 lat_suffix = 'N'
 
@@ -228,4 +219,4 @@ else:
 filename = ("meaniceinbox_" + mooring + pointname + str(inlat) + lat_suffix + "_" + 
             str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + 
             "_" + dist_type + "_" + str(args.years[0]) + "-" + str(args.years[1]) + ".csv")
-df_out.to_csv(filename, index=False)
+df_out.to_csv(filename)

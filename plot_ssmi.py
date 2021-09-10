@@ -15,7 +15,7 @@ import cartopy.feature as cfeature
 from cartopy.io import shapereader
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 from scipy import interpolate 
-from matplotlib.mlab import griddata
+from scipy.interpolate import griddata
 import cmocean
 import sys
 import argparse
