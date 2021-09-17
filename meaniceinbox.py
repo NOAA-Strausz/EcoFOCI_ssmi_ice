@@ -14,16 +14,16 @@ import pandas as pd
 import math
 import sys
 from haversine import haversine
-
+import yaml
 
 parser = argparse.ArgumentParser(description='Get ice concentration around a point')
 parser.add_argument('-latlon', '--latlon', nargs=2, 
                     help='latitude and longitude of desired point, W lon must be negative', type=float)
-parser.add_argument('-y', '--years', nargs=2, help='year range ie "2015 2019"', 
-                    type=int)
+parser.add_argument('-y', '--years', nargs=2, help='year range ie "2015 2019"; must have at least 2 years, can be the same year', 
+                    type=int, required=True)
 parser.add_argument('-a', '--name', help='optional name of point', type=str)
-parser.add_argument('-d', '--distance', help='size of box around point', 
-                    type=float)
+parser.add_argument('-d', '--distance', help='size of box around point in km', 
+                    type=float, required=True)
 parser.add_argument('-n', '--nm', help='use nautical miles instead of km',
                     action="store_true")
 parser.add_argument('-r', '--radius', help='use distance as radius around point instead of box',
@@ -34,13 +34,18 @@ parser.add_argument('-v', '--verbose', help='Print some details while processing
                                         
 args=parser.parse_args()
 
-latfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lats_v3.dat'
-lonfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lons_v3.dat'
-#locations of ice files
-bootstrap = '/home/akutan/strausz/ssmi_ice/data/bootstrap/'
-nrt = '/home/akutan/strausz/ssmi_ice/data/nrt/'
-#latest available bootstrap year
-boot_year = 2020
+#get config settings from yaml file
+#view yaml setup file for descriptions of these variables
+with open('meaniceinbox_config.yaml', 'r') as file:
+    config = yaml.safe_load(file)
+
+latfile = config['latfile']
+lonfile = config['lonfile']
+bootstrap = config['bootstrap']
+nrt = config['nrt']
+boot_year = config['boot_year']
+file.close()
+
 #mooring locaitons taken from 'https://www.pmel.noaa.gov/foci/foci_moorings/mooring_info/mooring_location_info.html'
 moorings = {'bs2':[56.869,-164.050], 'bs4':[57.895,-168.878], 'bs5':[59.911,-171.73],
          'bs8':[62.194,-174.688], 'bs14':[64.00,-167.933], 'ck1':[70.838,-163.125], 'ck2':[71.231,-164.223],
