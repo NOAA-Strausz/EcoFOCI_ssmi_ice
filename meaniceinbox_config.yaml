@@ -3,6 +3,8 @@
 
 #latfile and lonfile describe lats and lons of the 25km grid that is used for the
 #data
+#These files can be found
+#here: https://nsidc.org/data/polar-stereo/tools_geo_pixel.html
 latfile: /home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lats_v3.dat
 lonfile: /home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lons_v3.dat
 
