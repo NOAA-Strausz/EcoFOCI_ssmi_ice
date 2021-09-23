@@ -27,6 +27,10 @@ mean one day per second which is quite slow.  A frame rate of 8 per second has
 good results.  Putting a -r option on the output file will set the framerate to something more normal.
 This might be good for some players.  For example:
     ffmpeg -r 8 -f image2 -pattern_type glob -i '*.png' -r 30 test2.mp4
+It turns out that players such as quicktime and windows default player don't like videos made
+with this method.  Another switch is needed, -pix_fmt.  Use yuv420p as that seems to work.
+    ffmpeg -r 8 -f image2 -pattern_type glob -i '*.png' -r 30 -pix_fmt yuv420p test2.mp4
+
 
 
 Many more options can be set.  Check ffmpeg manual or many websites

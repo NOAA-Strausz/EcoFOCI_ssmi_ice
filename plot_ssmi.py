@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Jan  8 14:48:21 2019
-
+                    
 @author: dave
 """
 
@@ -23,10 +23,8 @@ import matplotlib.ticker as mticker
 import cartopy.mpl.ticker as cticker
 
 parser = argparse.ArgumentParser(description='Decode binary SSMI satellite data')
-parser.add_argument('infile', 
-    metavar='infile', 
-    type=str,
-    help='full path to input file')
+parser.add_argument('infile', metavar='infile', type=str,
+                    help='full path to input file')
 parser.add_argument('-m', '--mooring', nargs=1, 
                     help='add mooring location, ie ck1-ck4 or bs2-bs8 or all')
 parser.add_argument('-ex', '--extents', nargs=1,
@@ -77,7 +75,7 @@ def decode_latlon(filename):
     latlon_file = open(filename, 'rb')
     output = np.fromfile(latlon_file,dtype='<i4')
     output = output/100000.0
-    output = int(x * 1000)/1000 #sets decimal place at 3 without rounding
+    #output = int(x * 1000)/1000 #sets decimal place at 3 without rounding
     return output;
 
 if args.infile:        

@@ -15,6 +15,8 @@ import math
 import sys
 from haversine import haversine
 import yaml
+import pathlib
+
 
 parser = argparse.ArgumentParser(description='Get ice concentration around a point')
 parser.add_argument('-latlon', '--latlon', nargs=2, 
@@ -34,9 +36,13 @@ parser.add_argument('-v', '--verbose', help='Print some details while processing
                                         
 args=parser.parse_args()
 
+#this gets the path of where the executable file is located so that you can
+#run from anywhere and don't have to tell it where the config file is
+file_path=str(pathlib.Path(__file__).parent.resolve())
+config_file=file_path + '/' + 'meaniceinbox_config.yaml'
 #get config settings from yaml file
 #view yaml setup file for descriptions of these variables
-with open('meaniceinbox_config.yaml', 'r') as file:
+with open(config_file, 'r') as file:
     config = yaml.safe_load(file)
 
 latfile = config['latfile']
