@@ -21,11 +21,13 @@ import sys
 import argparse
 import matplotlib.ticker as mticker
 import cartopy.mpl.ticker as cticker
+import yaml
+import pathlib
 
 parser = argparse.ArgumentParser(description='Decode binary SSMI satellite data')
 parser.add_argument('infile', metavar='infile', type=str,
                     help='full path to input file')
-parser.add_argument('-m', '--mooring', nargs=1, 
+parser.add_argument('-m', '--mooring', nargs='+', 
                     help='add mooring location, ie ck1-ck4 or bs2-bs8 or all')
 parser.add_argument('-ex', '--extents', nargs=1,
                     help='chooses extents of map, options are bering, chukchi, custom, and default')
@@ -33,13 +35,22 @@ parser.add_argument('-ex', '--extents', nargs=1,
 
 args=parser.parse_args()
 
+#this gets the path of where the executable file is located so that you can
+#run from anywhere and don't have to tell it where the config file is
+file_path=str(pathlib.Path(__file__).parent.resolve())
+config_file=file_path + '/' + 'ice_config.yaml'
+#get config settings from yaml file
+#view yaml setup file for descriptions of these variables
+with open(config_file, 'r') as file:
+    config = yaml.safe_load(file)
+
 
 #data_file=sys.argv[1]
 #data_file='nt_20180402_f18_nrt_n.bin'
 #these are the files that contain the lats and lons. Obtained from here:
 #ftp://sidads.colorado.edu/pub/DATASETS/seaice/polar-stereo/tools/
-latfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lats_v3.dat'
-lonfile='/home/makushin/strausz/ecofoci_github/EcoFOCI_ssmi_ice/psn25lons_v3.dat'
+latfile = config['latfile']
+lonfile = config['lonfile']
 
 def decode_datafile(filename):
     #determine if it's nrt or bootstrap from filename prefix
@@ -163,8 +174,9 @@ zi = interpolate.griddata((x, y),z, (xi, yi), method='linear')
 #adds point on map
 #dictinary of mooring locations
 moorings = {'ck1': [70.838,163.125], 'ck2': [71.231,164.223], 'ck3': [71.828,166.070],
-            'ck4': [71.038,160.514], 'bs2': [56.869,164.050], 'bs4': [57.895,168.878],
-            'bs5': [59.911,171.731], 'bs8': [62.194,174.688]}
+            'ck4': [71.038,160.514], 'ck5': [71.203,158.011], 'ck12': [67.911,168.195],
+            'bs2': [56.869,164.050], 'bs4': [57.895,168.878], 'bs5': [59.911,171.731],
+            'bs8': [62.194,174.688]}
 
 
 
@@ -193,29 +205,20 @@ ax.coastlines(resolution='50m')
 plot_title="Ice Concentration: "+file_date.strftime("%Y-%m-%d")
 if args.mooring:
     if args.mooring[0] == 'all':
-        for key in moorings:
-            lat = moorings[key][0]
-            lon = 360-moorings[key][1]
-            ax.plot(lon, lat, 'r.', transform=transformation)
-            plot_title = key.swapcase() + ' ' + plot_title
-            label = key.swapcase()
-            label_lat = lat
-            label_lon = lon
-            ax.text(label_lon, label_lat, label, horizontalalignment='right', 
-                    verticalalignment='bottom', transform=transformation)
-            
-    else:    
-        lat = moorings[args.mooring[0]][0]
-        lon = 360-moorings[args.mooring[0]][1]
+        selected_moorings = list(moorings.keys())
+    else:
+        selected_moorings = args.mooring
+    for i in selected_moorings:
+        lat = moorings[i][0]
+        lon = 360-moorings[i][1]
         ax.plot(lon, lat, 'r.', transform=transformation)
-        plot_title = args.mooring[0].swapcase() + ' ' + plot_title
-        label = args.mooring[0].swapcase()
+        #plot_title = key.swapcase() + ' ' + plot_title
+        label = i.swapcase()
         label_lat = lat
         label_lon = lon
         ax.text(label_lon, label_lat, label, horizontalalignment='right', 
                 verticalalignment='bottom', transform=transformation)
-
-
+            
 #attempt at making gridlines with cartopy stuff, doesn't work that well
 #gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
 #                  linewidth=1, color='gray', alpha=0.5, linestyle='-')
