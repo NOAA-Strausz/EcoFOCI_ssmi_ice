@@ -16,8 +16,7 @@ import sys
 from haversine import haversine
 import yaml
 import pathlib
-import xarray as xr
-import re
+
 
 parser = argparse.ArgumentParser(description='Get ice concentration around a point')
 parser.add_argument('-latlon', '--latlon', nargs=2, 
@@ -31,7 +30,7 @@ parser.add_argument('-n', '--nm', help='use nautical miles instead of km',
                     action="store_true")
 parser.add_argument('-r', '--radius', help='use distance as radius around point instead of box',
                     action="store_true")
-parser.add_argument('-m', '--mooring', help='Mooring name, choose from ck1-9, or bs2-14')
+parser.add_argument('-m', '--mooring', help='Mooring name, choose from ck1-9, or bs2-8')
 parser.add_argument('-v', '--verbose', help='Print some details while processing files',
                     action="store_true")
                                         
@@ -50,7 +49,6 @@ latfile = config['latfile']
 lonfile = config['lonfile']
 bootstrap = config['bootstrap']
 nrt = config['nrt']
-nrt_ver2 = config['nrt_ver2']
 boot_year = config['boot_year']
 file.close()
 
@@ -86,42 +84,32 @@ else:
 def decode_datafile(filename):
     #determine if it's nrt or bootstrap from filename prefix
     #note that we remove path first if it exists
-    if filename[-2:] == 'nc': #looks to see if it a netcdf file
-        ds = xr.open_dataset(filename)
-        ice = ds['F18_ICECON'].values.flatten()
-        ice = ice*250
+    prefix = filename.split('/')[-1:][0][:2] 
+    icefile = open(filename, 'rb')
+    
+    if prefix == 'nt':
+        #remove the header
+        icefile.seek(300)
+        ice = np.fromfile(icefile,dtype=np.uint8)
         ice[ice >= 253] = 0
         ice = ice/2.5
-        ice = np.round(ice, 1)
-    else:
-        prefix = filename.split('/')[-1:][0][:2] 
-        icefile = open(filename, 'rb')
+    elif prefix == 'bt':
+        ice = np.fromfile(icefile,dtype=np.uint16)
+        ice = ice/10.
+        ice[ice == 110] = 100 #110 is polar hole
+        ice[ice == 120] = np.nan #120 is land
+    else: 
+        ice=np.nan
     
-        if prefix == 'nt':
-            #remove the header
-            icefile.seek(300)
-            ice = np.fromfile(icefile,dtype=np.uint8)
-            ice[ice >= 253] = 0
-            ice = ice/2.5
-        elif prefix == 'bt':
-            ice = np.fromfile(icefile,dtype=np.uint16)
-            ice = ice/10.
-            ice[ice == 110] = 100 #110 is polar hole
-            ice[ice == 120] = np.nan #120 is land
-        else: 
-            ice=np.nan
-        
-        icefile.close()
+    icefile.close()
     
     return ice;
 
 def get_date(filename):
     #gets date from filename
     #first remove path from filename if it is there
-    #filename = filename.split('/')[-1:][0]
-    #date = filename[3:11]
-    #use regex to get date from filename
-    date=re.search("\d{8}", filename).group(0)
+    filename = filename.split('/')[-1:][0]
+    date = filename[3:11]
     date = dt.datetime.strptime(date,"%Y%m%d")
     return date;
 
@@ -184,10 +172,8 @@ for i in years:
         path = bootstrap + year + '/'
         files = files + glob.glob(path + '*.bin')
     else:
-        #changed in jan 2023 to only work with new netcdf nrt files
-        path = nrt_ver2
-        files = files + glob.glob(path + '*' + year + ('[0-9]' *4) + '*.nc')
-        files = sorted(files)
+        path = nrt
+        files = files + glob.glob(path + '*' + year + '*.bin')
 
 output_date = []
 output_ice = []
@@ -217,8 +203,6 @@ for i in files:
 
 data = {'date':output_date, 'ice_concentration': output_ice}
 df = pd.DataFrame(data)
-#rount to one decimal place for neatness
-df['ice_concentration'] = df.ice_concentration.round()
 df.set_index(['date'], inplace=True)
 years_grouped = df.groupby(df.index.year)
 

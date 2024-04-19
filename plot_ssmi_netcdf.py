@@ -8,6 +8,8 @@ Created on Tue Jan  8 14:48:21 2019
 
 import numpy as np
 import pandas as pd
+import xarray as xr
+import re
 import datetime as dt
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -53,24 +55,32 @@ latfile = config['latfile']
 lonfile = config['lonfile']
 
 def decode_datafile(filename):
-    #determine if it's nrt or bootstrap from filename prefix
-    #note that we remove path first if it exists
-    prefix = filename.split('/')[-1:][0][:2] 
-    icefile = open(filename, 'rb')
+    if filename[-2:] == 'nc': #looks to see if it a netcdf file
+        ds = xr.open_dataset(filename)
+        ice = ds['F18_ICECON'].values.flatten()
+        ice[ice == 1.004] = 1.0
+        ice[ice >= 1.012] = np.nan
+        ice = ice*100
+    else:
     
-    if prefix == 'nt':
-        #remove the header
-        icefile.seek(300)
-        ice = np.fromfile(icefile,dtype=np.uint8)
-        ice[ice >= 253] = 0
-        ice = ice/2.5
-    elif prefix == 'bt':
-        ice = np.fromfile(icefile,dtype=np.uint16)
-        ice = ice/10.
-        ice[ice == 110] = 0 #110 is land
-        ice[ice == 120] = 100 #120 is polar hole
-    else: 
-        ice=np.nan
+        #determine if it's nrt or bootstrap from filename prefix
+        #note that we remove path first if it exists
+        prefix = filename.split('/')[-1:][0][:2] 
+        icefile = open(filename, 'rb')
+        
+        if prefix == 'nt':
+            #remove the header
+            icefile.seek(300)
+            ice = np.fromfile(icefile,dtype=np.uint8)
+            ice[ice >= 253] = 0
+            ice = ice/2.5
+        elif prefix == 'bt':
+            ice = np.fromfile(icefile,dtype=np.uint16)
+            ice = ice/10.
+            ice[ice == 110] = 0 #110 is land
+            ice[ice == 120] = 100 #120 is polar hole
+        else: 
+            ice=np.nan
     
     return ice;
 
@@ -78,7 +88,7 @@ def get_date(filename):
     #gets date from filename
     #first remove path from filename if it is there
     filename = filename.split('/')[-1:][0]
-    date = filename[3:11]
+    date = re.search("\d{8}", filename).group()        
     date = dt.datetime.strptime(date,"%Y%m%d")
     return date;
 
@@ -182,7 +192,7 @@ moorings = {'ck1': [70.838,163.125], 'ck2': [71.231,164.223], 'ck3': [71.828,166
 
 #dictionary for various extents of map
 
-extent = {'chukchi': [180, 210, 64, 73], 'bering': [174,206,51,66], 'beaufort': [190,218,68,80],
+extent = {'chukchi': [180, 210, 64, 73], 'bering': [174,206,51,66], 
           'default': [165,220,50,75],'custom':[180,228,68.25,77.25]} #adjust custom to desired extents
 
 if args.extents:
