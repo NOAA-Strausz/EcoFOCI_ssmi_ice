@@ -121,7 +121,7 @@ def get_date(filename):
     #filename = filename.split('/')[-1:][0]
     #date = filename[3:11]
     #use regex to get date from filename
-    date=re.search("\d{8}", filename).group(0)
+    date=re.search(r'\d{8}', filename).group(0)
     date = dt.datetime.strptime(date,"%Y%m%d")
     return date;
 
@@ -206,7 +206,11 @@ for i in files:
         df_ice_chopped = df_ice_chopped.assign(dist=distance.values)
         df_ice_chopped = df_ice_chopped.loc[df_ice_chopped.dist < args.distance]        
     #date_string = date.strftime("%Y,%j")
-    ice = df_ice_chopped.ice_conc.mean().round(decimals=1)
+    #round entire ice_chopped data frame to one decimal place
+    df_ice_chopped=df_ice_chopped.round(1)
+    ice = df_ice_chopped.ice_conc.mean()
+    #below line worked until nans started showing up when only one point was available
+    #ice = df_ice_chopped.ice_conc.mean().round(decimals=1)
     #print(date_string+','+str(ice))
     if args.verbose:
         print("Working on File: " + i)
@@ -222,7 +226,8 @@ df['ice_concentration'] = df.ice_concentration.round()
 df.set_index(['date'], inplace=True)
 years_grouped = df.groupby(df.index.year)
 
-df_out=pd.DataFrame()
+#make empty dataframe to keep structure of 1..366 for doy
+df_out=pd.DataFrame(index=range(1,366))
 for name, group in years_grouped:
     year = str(name)
     group.index=group.index.dayofyear
