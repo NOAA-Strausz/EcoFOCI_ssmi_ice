@@ -10,15 +10,12 @@ lonfile: /home/akutan/strausz/noaa_pmel_github/EcoFOCI_ssmi_ice/psn25lons_v3.dat
 
 #this is directory where you keep your bootstrap data, must have sub directories
 #for each year of data
-bootstrap: /home/akutan/strausz/ssmi_ice/data/bootstrap/
+bootstrap: /home/disk3/projects/ecofoci/foci_lfstore/data_sets/ssmi_ice/bootstrap/ 
 #this is the directory for NASA's nrt data.  It is not broken down into years.  
 #it is only used when bootstrap data is not yet available
-nrt: /home/akutan/strausz/ssmi_ice/data/nrt/
-#new as of Jan 2022, nrt data is moving to netcdf format soon below is derectory for 
-#netcdf formated version 2 files 
-nrt_ver2: /home/akutan/strausz/ssmi_ice/data/nrt/version2/
+nrt: /home/disk3/projects/ecofoci/foci_lfstore/data_sets/ssmi_ice/nrt/
 #year for which latest bootstrap data is available, will need to be changed as
 #new data is released
-boot_year: 2022
+boot_year: 2023
 
 

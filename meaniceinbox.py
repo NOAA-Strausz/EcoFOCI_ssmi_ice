@@ -50,7 +50,6 @@ latfile = config['latfile']
 lonfile = config['lonfile']
 bootstrap = config['bootstrap']
 nrt = config['nrt']
-nrt_ver2 = config['nrt_ver2']
 boot_year = config['boot_year']
 file.close()
 
@@ -84,34 +83,47 @@ else:
     pointname = ''
 
 def decode_datafile(filename):
-    #determine if it's nrt or bootstrap from filename prefix
-    #note that we remove path first if it exists
-    if filename[-2:] == 'nc': #looks to see if it a netcdf file
-        ds = xr.open_dataset(filename)
-        ice = ds['F18_ICECON'].values.flatten()
-        ice = ice*250
-        ice[ice >= 253] = 0
-        ice = ice/2.5
-        ice = np.round(ice, 1)
-    else:
-        prefix = filename.split('/')[-1:][0][:2] 
-        icefile = open(filename, 'rb')
     
-        if prefix == 'nt':
-            #remove the header
-            icefile.seek(300)
-            ice = np.fromfile(icefile,dtype=np.uint8)
-            ice[ice >= 253] = 0
-            ice = ice/2.5
-        elif prefix == 'bt':
-            ice = np.fromfile(icefile,dtype=np.uint16)
-            ice = ice/10.
-            ice[ice == 110] = 100 #110 is polar hole
-            ice[ice == 120] = np.nan #120 is land
-        else: 
-            ice=np.nan
+    ds = xr.open_dataset(filename)
+    #search for the variable with "ICECON" in it
+    #bootstrap files should only have one data variable so the below
+    #code searches for the variable with 'ICECON' in the name
+    #it changes over the years depending on which sattelite
+    #the nrt files have three data variables, F16_ICECON, F17_ICECON, 
+    #and F18_ICECON.  We will just use F18 for now. 
+    variable=[var for var in ds.data_vars if 'ICECON' in var]
+    variable=variable[-1:].pop() #gets the last variable in the list
+    ice = ds[variable].values.flatten()
+    # if re.search("NSIDC0081", filename):
+        # variable=[var for var in ds.data_vars if 'ICECON' in var]
+        # ice = ds[variable].values.flatten()
+    # else:
+        # ice = ds['F18_ICECON'].values.flatten()
+    ice = ice*250
+    ice[ice >= 253] = 0
+    ice = ice/2.5
+    ice = np.round(ice, 1)
+    #below is old code for decoding the binary files
+    #not needed since 2024 when bootstrap went to all netcdf
+    # else:
+        # prefix = filename.split('/')[-1:][0][:2] 
+        # icefile = open(filename, 'rb')
+    
+        # if prefix == 'nt':
+            # #remove the header
+            # icefile.seek(300)
+            # ice = np.fromfile(icefile,dtype=np.uint8)
+            # ice[ice >= 253] = 0
+            # ice = ice/2.5
+        # elif prefix == 'bt':
+            # ice = np.fromfile(icefile,dtype=np.uint16)
+            # ice = ice/10.
+            # ice[ice == 110] = 100 #110 is polar hole
+            # ice[ice == 120] = np.nan #120 is land
+        # else: 
+            # ice=np.nan
         
-        icefile.close()
+        # icefile.close()
     
     return ice;
 
@@ -182,10 +194,11 @@ for i in years:
     year = str(i)
     if i <= boot_year:
         path = bootstrap + year + '/'
-        files = files + glob.glob(path + '*.bin')
+        files = files + glob.glob(path + '*.nc')
+        files = sorted(files)
     else:
         #changed in jan 2023 to only work with new netcdf nrt files
-        path = nrt_ver2
+        path = nrt
         files = files + glob.glob(path + '*' + year + ('[0-9]' *4) + '*.nc')
         files = sorted(files)
 
@@ -193,31 +206,34 @@ output_date = []
 output_ice = []
         
 for i in files:
-    #print('decoding filename: ' + i)
-    data_ice={'latitude':decode_latlon(latfile), 'longitude':decode_latlon(lonfile),
-          'ice_conc':decode_datafile(i)}
-    df_ice=pd.DataFrame(data_ice)
-    df_ice_chopped = df_ice[(df_ice.latitude <= nlat) & (df_ice.latitude >= slat) & 
-                            (df_ice.longitude >= wlon) & (df_ice.longitude <= elon)]
-    date = get_date(i)
-    if args.radius:
-        fn = lambda x: haversine((inlat, inlon),(x.latitude,x.longitude))
-        distance = df_ice_chopped.apply(fn, axis=1)
-        df_ice_chopped = df_ice_chopped.assign(dist=distance.values)
-        df_ice_chopped = df_ice_chopped.loc[df_ice_chopped.dist < args.distance]        
-    #date_string = date.strftime("%Y,%j")
-    #round entire ice_chopped data frame to one decimal place
-    df_ice_chopped=df_ice_chopped.round(1)
-    ice = df_ice_chopped.ice_conc.mean()
-    #below line worked until nans started showing up when only one point was available
-    #ice = df_ice_chopped.ice_conc.mean().round(decimals=1)
-    #print(date_string+','+str(ice))
-    if args.verbose:
-        print("Working on File: " + i)
-        print("For " + date.strftime("%Y-%m-%d") + " ice concentration was " 
-              + str(ice) + "%")
-    output_date.append(date)
-    output_ice.append(ice)
+    try:
+        #print('decoding filename: ' + i)
+        data_ice={'latitude':decode_latlon(latfile), 'longitude':decode_latlon(lonfile),
+              'ice_conc':decode_datafile(i)}
+        df_ice=pd.DataFrame(data_ice)
+        df_ice_chopped = df_ice[(df_ice.latitude <= nlat) & (df_ice.latitude >= slat) & 
+                                (df_ice.longitude >= wlon) & (df_ice.longitude <= elon)]
+        date = get_date(i)
+        if args.radius:
+            fn = lambda x: haversine((inlat, inlon),(x.latitude,x.longitude))
+            distance = df_ice_chopped.apply(fn, axis=1)
+            df_ice_chopped = df_ice_chopped.assign(dist=distance.values)
+            df_ice_chopped = df_ice_chopped.loc[df_ice_chopped.dist < args.distance]        
+        #date_string = date.strftime("%Y,%j")
+        #round entire ice_chopped data frame to one decimal place
+        df_ice_chopped=df_ice_chopped.round(1)
+        ice = df_ice_chopped.ice_conc.mean()
+        #below line worked until nans started showing up when only one point was available
+        #ice = df_ice_chopped.ice_conc.mean().round(decimals=1)
+        #print(date_string+','+str(ice))
+        if args.verbose:
+            print("Working on File: " + i)
+            print("For " + date.strftime("%Y-%m-%d") + " ice concentration was " 
+                  + str(ice) + "%")
+        output_date.append(date)
+        output_ice.append(ice)
+    except:
+        pass
 
 data = {'date':output_date, 'ice_concentration': output_ice}
 df = pd.DataFrame(data)
