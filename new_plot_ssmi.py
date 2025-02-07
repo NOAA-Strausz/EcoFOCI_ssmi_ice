@@ -30,8 +30,7 @@ parser = argparse.ArgumentParser(description='Decode binary SSMI satellite data'
 parser.add_argument('infile', metavar='infile', type=str,
                     help='full path to input file')
 parser.add_argument('-m', '--mooring', nargs='+', 
-                    help='add mooring location, individual moorings or [all] for all moorings \
-                    must be after the infile if listing individual moorings [ie -m c1 c2 m2 m4]')
+                    help='add mooring location, ie ck1-ck4 or bs2-bs8 or all')
 parser.add_argument('-ex', '--extents', nargs=1,
                     help='chooses extents of map, options are bering, chukchi, custom, and default')
 
@@ -54,49 +53,34 @@ with open(config_file, 'r') as file:
 #ftp://sidads.colorado.edu/pub/DATASETS/seaice/polar-stereo/tools/
 latfile = config['latfile']
 lonfile = config['lonfile']
-boot_year = config['boot_year']
 
 def decode_datafile(filename):
-    ds = xr.open_dataset(filename)
-    #search for the variable with "ICECON" in it
-    #bootstrap files should only have one data variable so the below
-    #code searches for the variable with 'ICECON' in the name
-    #it changes over the years depending on which sattelite
-    #the nrt files have three data variables, F16_ICECON, F17_ICECON, 
-    #and F18_ICECON.  We will just use F18 for now. 
-    variable=[var for var in ds.data_vars if 'ICECON' in var]
-    variable=variable[-1:].pop() #gets the last variable in the list
-    ice = ds[variable].values.flatten()
-    # if re.search("NSIDC0081", filename):
-        # variable=[var for var in ds.data_vars if 'ICECON' in var]
-        # ice = ds[variable].values.flatten()
-    # else:
-        # ice = ds['F18_ICECON'].values.flatten()
-    ice = ice*100
-    # ~ ice[ice >= 253] = 0
-    # ~ ice = ice/2.5
-    # ~ ice = np.round(ice, 1)
-    #below is old code for decoding the binary files
-    #not needed since 2024 when bootstrap went to all netcdf
-    # else:
-        # prefix = filename.split('/')[-1:][0][:2] 
-        # icefile = open(filename, 'rb')
+    if filename[-2:] == 'nc': #looks to see if it a netcdf file
+        ds = xr.open_dataset(filename)
+        ice = ds['F18_ICECON'].values.flatten()
+        ice[ice == 1.004] = 1.0
+        ice[ice >= 1.012] = np.nan
+        ice = ice*100
+    else:
     
-        # if prefix == 'nt':
-            # #remove the header
-            # icefile.seek(300)
-            # ice = np.fromfile(icefile,dtype=np.uint8)
-            # ice[ice >= 253] = 0
-            # ice = ice/2.5
-        # elif prefix == 'bt':
-            # ice = np.fromfile(icefile,dtype=np.uint16)
-            # ice = ice/10.
-            # ice[ice == 110] = 100 #110 is polar hole
-            # ice[ice == 120] = np.nan #120 is land
-        # else: 
-            # ice=np.nan
+        #determine if it's nrt or bootstrap from filename prefix
+        #note that we remove path first if it exists
+        prefix = filename.split('/')[-1:][0][:2] 
+        icefile = open(filename, 'rb')
         
-        # icefile.close()
+        if prefix == 'nt':
+            #remove the header
+            icefile.seek(300)
+            ice = np.fromfile(icefile,dtype=np.uint8)
+            ice[ice >= 253] = 0
+            ice = ice/2.5
+        elif prefix == 'bt':
+            ice = np.fromfile(icefile,dtype=np.uint16)
+            ice = ice/10.
+            ice[ice == 110] = 0 #110 is land
+            ice[ice == 120] = 100 #120 is polar hole
+        else: 
+            ice=np.nan
     
     return ice;
 
@@ -153,10 +137,6 @@ def make_map(projection=ccrs.PlateCarree()):
 land_50m = cfeature.NaturalEarthFeature('physical', 'land', '50m',
                                         edgecolor='face',
                                         facecolor=cfeature.COLORS['land'])
-#for zoomed in, more detail
-land_10m = cfeature.NaturalEarthFeature('physical', 'land', '10m',
-                                        edgecolor='face',
-                                        facecolor=cfeature.COLORS['land'])
 
 #bath_50m = cfeature.NaturalEarthFeature('raster', 'OB_50M', '50m')
 #                                        edgecolor='face',
@@ -203,19 +183,17 @@ zi = interpolate.griddata((x, y),z, (xi, yi), method='linear')
 
 #adds point on map
 #dictinary of mooring locations
-moorings = {'c1': [70.838,163.125], 'c2': [71.231,164.223], 'c3': [71.828,166.070],
-            'c4': [71.038,160.514], 'c5': [71.203,158.011], 'c12': [67.911,168.195],
-            'm2': [56.869,164.050], 'm4': [57.895,168.878], 'm5': [59.911,171.731],
-            'm8': [62.194,174.688], 'm14': [64.0,167.929], 'k1': [57.855,163.667],
-            'k2': [58.262,163.495], 'k3': [58.785,163.278]}
+moorings = {'ck1': [70.838,163.125], 'ck2': [71.231,164.223], 'ck3': [71.828,166.070],
+            'ck4': [71.038,160.514], 'ck5': [71.203,158.011], 'ck12': [67.911,168.195],
+            'bs2': [56.869,164.050], 'bs4': [57.895,168.878], 'bs5': [59.911,171.731],
+            'bs8': [62.194,174.688]}
 
 
 
 #dictionary for various extents of map
-#note that longitude is positive degrees west
 
 extent = {'chukchi': [180, 210, 64, 73], 'bering': [174,206,51,66], 
-          'default': [165,220,50,75],'custom':[185,200,56,61]} #adjust custom to desired extents
+          'default': [165,220,50,75],'custom':[180,228,68.25,77.25]} #adjust custom to desired extents
 
 if args.extents:
     map_extents=extent[args.extents[0]]
@@ -233,15 +211,8 @@ cm=ax.pcolormesh(xi,yi,zi,transform=transformation,cmap=cmocean.cm.ice, vmin=0, 
 plt.colorbar(cm)
 #ax.stock_img()
 ax.add_feature(land_50m)
-#uncomment out for more detail, will be slower
-#ax.add_feature(land_10m)
 ax.coastlines(resolution='50m')
-#uncomment out for more detail, will be slower
-#ax.coastlines(resolution='10m')
-
 plot_title="Ice Concentration: "+file_date.strftime("%Y-%m-%d")
-#uncomment out below for custom plot title
-# ~ plot_title="Bering Sea Maximum Ice Extent, Mar 19, 2024"
 if args.mooring:
     if args.mooring[0] == 'all':
         selected_moorings = list(moorings.keys())
@@ -257,12 +228,6 @@ if args.mooring:
         label_lon = lon
         ax.text(label_lon, label_lat, label, horizontalalignment='right', 
                 verticalalignment='bottom', transform=transformation)
-                
-#below area can be used to add custom annotations to the map:
-date = file_date.strftime("%b %d")
-ax.text(200, 52, date, horizontalalignment='right', 
-                verticalalignment='bottom', transform=transformation,
-                size='x-large', weight='bold')
             
 #attempt at making gridlines with cartopy stuff, doesn't work that well
 #gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,

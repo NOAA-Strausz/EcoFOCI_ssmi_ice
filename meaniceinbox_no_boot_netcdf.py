@@ -18,7 +18,6 @@ import yaml
 import pathlib
 import xarray as xr
 import re
-import warnings
 
 parser = argparse.ArgumentParser(description='Get ice concentration around a point')
 parser.add_argument('-latlon', '--latlon', nargs=2, 
@@ -38,23 +37,20 @@ parser.add_argument('-v', '--verbose', help='Print some details while processing
                                         
 args=parser.parse_args()
 
-#suppress some warnings
-warnings.filterwarnings("ignore")
 #this gets the path of where the executable file is located so that you can
 #run from anywhere and don't have to tell it where the config file is
 file_path=str(pathlib.Path(__file__).parent.resolve())
-file_path=file_path + '/'
-config_file=file_path + 'meaniceinbox_config.yaml'
+config_file=file_path + '/' + 'meaniceinbox_config_pre_netcdf.yaml'
 #get config settings from yaml file
 #view yaml setup file for descriptions of these variables
 with open(config_file, 'r') as file:
     config = yaml.safe_load(file)
 
-latlon_nc = file_path + config['latlon_nc']
 latfile = config['latfile']
 lonfile = config['lonfile']
 bootstrap = config['bootstrap']
 nrt = config['nrt']
+nrt_ver2 = config['nrt_ver2']
 boot_year = config['boot_year']
 file.close()
 
@@ -88,25 +84,53 @@ else:
     pointname = ''
 
 def decode_datafile(filename):
+    #determine if it's nrt or bootstrap from filename prefix
+    #note that we remove path first if it exists
+    if filename[-2:] == 'nc': #looks to see if it a netcdf file
+        ds = xr.open_dataset(filename)
+        ice = ds['F18_ICECON'].values.flatten()
+        ice = ice*250
+        ice[ice >= 253] = 0
+        ice = ice/2.5
+        ice = np.round(ice, 1)
+    else:
+        prefix = filename.split('/')[-1:][0][:2] 
+        icefile = open(filename, 'rb')
     
-    ds = xr.open_dataset(filename)
-    #search for the variable with "ICECON" in it
-    #bootstrap files should only have one data variable so the below
-    #code searches for the variable with 'ICECON' in the name
-    #it changes over the years depending on which sattelite
-    #the nrt files have three data variables, F16_ICECON, F17_ICECON, 
-    #and F18_ICECON.  We will just use F18 for now. 
-    variable=[var for var in ds.data_vars if 'ICECON' in var]
-    variable=variable[-1:].pop() #gets the last variable in the list
-    ice = ds[variable].values.flatten()
-    date = pd.Timestamp(ds.time.values[0])
-    return ice, date;
+        if prefix == 'nt':
+            #remove the header
+            icefile.seek(300)
+            ice = np.fromfile(icefile,dtype=np.uint8)
+            ice[ice >= 253] = 0
+            ice = ice/2.5
+        elif prefix == 'bt':
+            ice = np.fromfile(icefile,dtype=np.uint16)
+            ice = ice/10.
+            ice[ice == 110] = 100 #110 is polar hole
+            ice[ice == 120] = np.nan #120 is land
+        else: 
+            ice=np.nan
+        
+        icefile.close()
+    
+    return ice;
+
+def get_date(filename):
+    #gets date from filename
+    #first remove path from filename if it is there
+    #filename = filename.split('/')[-1:][0]
+    #date = filename[3:11]
+    #use regex to get date from filename
+    date=re.search(r'\d{8}', filename).group(0)
+    date = dt.datetime.strptime(date,"%Y%m%d")
+    return date;
 
 def decode_latlon(filename):
-    ds = xr.open_dataset(filename)
-    latitude = ds.latitude.values.flatten()
-    longitude = ds.longitude.values.flatten()
-    output = {'latitude': latitude, 'longitude': longitude}
+    latlon_file = open(filename, 'rb')
+    output = np.fromfile(latlon_file,dtype='<i4')
+    output = output/100000.0
+    #output = int(output * 1000)/1000 #sets decimal place at 3 without rounding
+    latlon_file.close()
     return output;
 
 def find_box(lat1, lon1, dist, nm):
@@ -158,60 +182,47 @@ for i in years:
     year = str(i)
     if i <= boot_year:
         path = bootstrap + year + '/'
-        files = files + glob.glob(path + '*.nc')
-        files = sorted(files)
+        files = files + glob.glob(path + '*.bin')
     else:
         #changed in jan 2023 to only work with new netcdf nrt files
-        path = nrt
+        path = nrt_ver2
         files = files + glob.glob(path + '*' + year + ('[0-9]' *4) + '*.nc')
         files = sorted(files)
 
 output_date = []
 output_ice = []
-
-#get latitude and longitude arrays from netcdf file
-latlon = decode_latlon(latlon_nc)
-for i in files:
-    try:
-        #print('decoding filename: ' + i)
-        data_ice = latlon
-        data_ice['ice_conc'], date = decode_datafile(i)
-        df_ice=pd.DataFrame(data_ice)
-        df_ice_chopped = df_ice[(df_ice.latitude <= nlat) & (df_ice.latitude >= slat) & 
-                                (df_ice.longitude >= wlon) & (df_ice.longitude <= elon)]
-        #multiply ice concentration by 100 to get it to percentage
-        #xarray should have applied the mask_and_scale=True by default
-        #when processing the nrt or bootstrap netcdf files to return a 
-        #concentration that is from 0-1 where 1 is 100% ice cover
         
-        df_ice_chopped.loc[:, 'ice_conc'] *= 100
-        if args.radius:
-            fn = lambda x: haversine((inlat, inlon),(x.latitude,x.longitude))
-            distance = df_ice_chopped.apply(fn, axis=1)
-            df_ice_chopped = df_ice_chopped.assign(dist=distance.values)
-            df_ice_chopped = df_ice_chopped.loc[df_ice_chopped.dist < args.distance]        
-        #date_string = date.strftime("%Y,%j")
-        #round entire ice_chopped data frame to one decimal place
-        df_ice_chopped=df_ice_chopped.round(1)
-        ice = df_ice_chopped.ice_conc.mean().round(1)
-        #below line worked until nans started showing up when only one point was available
-        #ice = df_ice_chopped.ice_conc.mean().round(decimals=1)
-        #print(date_string+','+str(ice))
-        if args.verbose:
-            print("Working on File: " + i)
-            print("For " + date.strftime("%Y-%m-%d") + " ice concentration was " 
-                  + str(ice) + "%")
-        output_date.append(date)
-        output_ice.append(ice)
-    except:
-        pass
+for i in files:
+    #print('decoding filename: ' + i)
+    data_ice={'latitude':decode_latlon(latfile), 'longitude':decode_latlon(lonfile),
+          'ice_conc':decode_datafile(i)}
+    df_ice=pd.DataFrame(data_ice)
+    df_ice_chopped = df_ice[(df_ice.latitude <= nlat) & (df_ice.latitude >= slat) & 
+                            (df_ice.longitude >= wlon) & (df_ice.longitude <= elon)]
+    date = get_date(i)
+    if args.radius:
+        fn = lambda x: haversine((inlat, inlon),(x.latitude,x.longitude))
+        distance = df_ice_chopped.apply(fn, axis=1)
+        df_ice_chopped = df_ice_chopped.assign(dist=distance.values)
+        df_ice_chopped = df_ice_chopped.loc[df_ice_chopped.dist < args.distance]        
+    #date_string = date.strftime("%Y,%j")
+    #round entire ice_chopped data frame to one decimal place
+    df_ice_chopped=df_ice_chopped.round(1)
+    ice = df_ice_chopped.ice_conc.mean()
+    #below line worked until nans started showing up when only one point was available
+    #ice = df_ice_chopped.ice_conc.mean().round(decimals=1)
+    #print(date_string+','+str(ice))
+    if args.verbose:
+        print("Working on File: " + i)
+        print("For " + date.strftime("%Y-%m-%d") + " ice concentration was " 
+              + str(ice) + "%")
+    output_date.append(date)
+    output_ice.append(ice)
 
 data = {'date':output_date, 'ice_concentration': output_ice}
 df = pd.DataFrame(data)
 #rount to one decimal place for neatness
-#not sure why it needs this again as it should be rounded already
-#but nrt data was not getting rounded if multiple years selected
-df['ice_concentration'] = df.ice_concentration.round(1)
+df['ice_concentration'] = df.ice_concentration.round()
 df.set_index(['date'], inplace=True)
 years_grouped = df.groupby(df.index.year)
 

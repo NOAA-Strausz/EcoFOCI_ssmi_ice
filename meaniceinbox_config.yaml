@@ -7,6 +7,7 @@
 #here: https://nsidc.org/data/polar-stereo/tools_geo_pixel.html
 latfile: /home/akutan/strausz/noaa_pmel_github/EcoFOCI_ssmi_ice/psn25lats_v3.dat
 lonfile: /home/akutan/strausz/noaa_pmel_github/EcoFOCI_ssmi_ice/psn25lons_v3.dat
+latlon_nc: NSIDC0771_LatLon_PS_N25km_v1.0.nc
 
 #this is directory where you keep your bootstrap data, must have sub directories
 #for each year of data
