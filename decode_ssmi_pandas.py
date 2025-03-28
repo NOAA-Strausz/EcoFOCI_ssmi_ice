@@ -37,13 +37,13 @@ areafile = "psn25area_v3.dat"
 def decode_datafile(filename, datasource="NRT"):
     icefile = open(filename, "rb")
 
-    if datasource is "NRT":
+    if datasource == "NRT":
         # remove the header
         icefile.seek(300)
         ice = np.fromfile(icefile, dtype=np.uint8)
         ice[ice >= 253] = 0
         ice = ice / 2.5
-    elif datasource is "Bootstrap":
+    elif datasource == "Bootstrap":
         # no header
         ice = np.fromfile(icefile, dtype=np.uint16)
         ice = ice / 10
