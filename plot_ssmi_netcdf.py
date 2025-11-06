@@ -139,7 +139,7 @@ df['ice_conc'][df['ice_conc']==0] = np.nan
 #df['ice_conc'][df['ice_conc']<100] = np.nan
 #df['ice_conc'][df['ice_conc']<0] = np.nan
 def make_map(projection=ccrs.PlateCarree()):
-    fig, ax = plt.subplots(figsize=(10.5, 7),
+    fig, ax = plt.subplots(figsize=(7, 7),
                            subplot_kw=dict(projection=projection))
     if projection == ccrs.PlateCarree():
         gl = ax.gridlines(draw_labels=True)
@@ -260,7 +260,7 @@ if args.mooring:
                 
 #below area can be used to add custom annotations to the map:
 date = file_date.strftime("%b %d")
-ax.text(200, 52, date, horizontalalignment='right', 
+ax.text(210, 52, date, horizontalalignment='right', 
                 verticalalignment='bottom', transform=transformation,
                 size='x-large', weight='bold')
             

@@ -17,6 +17,6 @@ bootstrap: /home/disk3/projects/ecofoci/foci_lfstore/data_sets/ssmi_ice/bootstra
 nrt: /home/disk3/projects/ecofoci/foci_lfstore/data_sets/ssmi_ice/nrt/
 #year for which latest bootstrap data is available, will need to be changed as
 #new data is released
-boot_year: 2023
+boot_year: 2024
 
 
