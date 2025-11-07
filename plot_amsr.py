@@ -179,7 +179,7 @@ if args.mooring:
 #ax.scatter(df_ice.longitude, df_ice.latitude, color='red', marker='o', s=1, transform=ccrs.PlateCarree())
 plot_title = "AMSR2 25km Ice Concentration on " + str_date
 ax.set_title(plot_title, fontsize=16, fontweight='bold', pad=20)
-output_filename = 'asmr2_ice_25km_' + date.strftime("%Y_%m_%d") + ".png"
+output_filename = 'amsr2_ice_25km_' + date.strftime("%Y_%m_%d") + ".png"
 plt.savefig(output_filename, dpi=300)
 print(f"Plot saved to '{output_filename}'")
 

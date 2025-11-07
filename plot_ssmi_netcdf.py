@@ -313,3 +313,5 @@ fig.savefig(filename)
 #gl.ylines = False
 #gl.xformatter = LONGITUDE_FORMATTER
 #gl.yformatter = LATITUDE_FORMATTER
+
+sys.exit()
