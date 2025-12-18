@@ -8,6 +8,7 @@ Created on Fri Dec 20 13:15:11 2019
 
 import argparse
 import glob
+import os
 import numpy as np
 import datetime as dt
 import pandas as pd
@@ -23,8 +24,10 @@ import warnings
 parser = argparse.ArgumentParser(description='Get ice concentration around a point')
 parser.add_argument('-latlon', '--latlon', nargs=2, 
                     help='latitude and longitude of desired point, W lon must be negative', type=float)
-parser.add_argument('-y', '--years', nargs=2, help='year range ie "2015 2019"; must have at least 2 years, can be the same year', 
-                    type=int, required=True)
+parser.add_argument('-y', '--years', nargs='+', help='year range ie "2015 2019"; can be a single year. Select "latest" to just print out latest data', 
+                    type=int)
+parser.add_argument('-l', '--latest', help='output latest value to stdout', action="store_true")
+parser.add_argument('-L', '--linear', help='change output to one file with full time series in one column', action="store_true")
 parser.add_argument('-a', '--name', help='optional name of point', type=str)
 parser.add_argument('-d', '--distance', help='size of box around point in km', 
                     type=float, required=True)
@@ -56,6 +59,7 @@ lonfile = config['lonfile']
 bootstrap = config['bootstrap']
 nrt = config['nrt']
 boot_year = config['boot_year']
+amsr = config['amsr']
 file.close()
 
 #mooring locaitons taken from 'https://www.pmel.noaa.gov/foci/foci_moorings/mooring_info/mooring_location_info.html'
@@ -143,6 +147,11 @@ def find_box(lat1, lon1, dist, nm):
     
     return([nlat,slat,wlon,elon])
 
+def get_latest_file(directory):
+    files = os.listdir(directory)
+    full_paths = [os.path.join(directory, f) for f in files]
+    latest_file = max(full_paths, key=os.path.getmtime)
+    return latest_file
     
 if args.radius:
     nlat, slat, wlon, elon = find_box(inlat, inlon, 2*args.distance, nm=args.nm)
@@ -150,21 +159,29 @@ if args.radius:
 else:
     nlat, slat, wlon, elon = find_box(inlat, inlon, args.distance, nm=args.nm)
     dist_type = 'Box'
+years = args.years
 #put desired years in list
-years = list(range(args.years[0],args.years[1]+1))
+#years = list(range(args.years[0],args.years[1]+1))
 files = []
 
-for i in years:
-    year = str(i)
-    if i <= boot_year:
-        path = bootstrap + year + '/'
-        files = files + glob.glob(path + '*.nc')
-        files = sorted(files)
-    else:
-        #changed in jan 2023 to only work with new netcdf nrt files
-        path = nrt
-        files = files + glob.glob(path + '*' + year + ('[0-9]' *4) + '*.nc')
-        files = sorted(files)
+if args.latest:
+    latest_file = get_latest_file(amsr)
+    print("Newest file is " + latest_file)
+    files.append(latest_file)
+else:
+    for i in years:
+        year = str(i)
+        if i <= boot_year:
+            path = bootstrap + year + '/'
+            file_list = glob.glob(path + '*.nc')
+            file_list = sorted(file_list)
+            files.extend(file_list)
+        else:
+            #changed in jan 2023 to only work with new netcdf nrt files
+            path = amsr
+            file_list = glob.glob(path + '*' + year + ('[0-9]' *4) + '*.nc')
+            file_list = sorted(file_list)
+            files.extend(file_list)
 
 output_date = []
 output_ice = []
@@ -213,17 +230,20 @@ df = pd.DataFrame(data)
 #but nrt data was not getting rounded if multiple years selected
 df['ice_concentration'] = df.ice_concentration.round(1)
 df.set_index(['date'], inplace=True)
-years_grouped = df.groupby(df.index.year)
-
-#make empty dataframe to keep structure of 1..366 for doy
-df_out=pd.DataFrame(index=range(1,366))
-for name, group in years_grouped:
-    year = str(name)
-    group.index=group.index.dayofyear
-    group.index.rename("day_of_year", inplace=True)
-    group.rename(columns={"ice_concentration" : year}, inplace=True)
-
-    df_out = pd.concat([df_out,group], axis=1)
+if args.linear or args.latest:
+    df_out=df
+else:
+    years_grouped = df.groupby(df.index.year)
+    
+    #make empty dataframe to keep structure of 1..366 for doy
+    df_out=pd.DataFrame(index=range(1,366))
+    for name, group in years_grouped:
+        year = str(name)
+        group.index=group.index.dayofyear
+        group.index.rename("day_of_year", inplace=True)
+        group.rename(columns={"ice_concentration" : year}, inplace=True)
+    
+        df_out = pd.concat([df_out,group], axis=1)
     
     
 #df_out = pd.DataFrame.from_dict(output, orient='index').transpose()
@@ -237,7 +257,27 @@ else:
     lon_suffix = 'E'
     
 
-filename = ("meaniceinbox_" + mooring + pointname + str(inlat) + lat_suffix + "_" + 
-            str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + 
-            "_" + dist_type + "_" + str(args.years[0]) + "-" + str(args.years[1]) + ".csv")
-df_out.to_csv(filename)
+
+if args.latest:
+    filename = ("meaniceinbox" + mooring + pointname + str(inlat) + lat_suffix + "_" + 
+            str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + "_" + dist_type + "_"
+            + "latest_" + df_out.index[0].strftime("%Y-%m-%d") + ".txt")
+    df_out.to_csv(filename, header=False)
+elif args.linear:
+    filename = ("meaniceinbox" + mooring + pointname + str(inlat) + lat_suffix + "_" + 
+            str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + "_" + dist_type + "_"
+            + str(years[0]) + "-" + str(years[1]) + "_linear.csv")
+    df_out.to_csv(filename)
+else:
+    if len(years) > 1:
+        filename = ("meaniceinbox_" + mooring + pointname + str(inlat) + lat_suffix + "_" + 
+                str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + 
+                "_" + dist_type + "_" + str(years[0]) + "-" + str(years[1]) + ".csv")
+    else:
+        filename = ("meaniceinbox_" + mooring + pointname + str(inlat) + lat_suffix + "_" + 
+                str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + 
+                "_" + dist_type + "_" + str(years[0]) + ".csv")
+    
+        
+    df_out.to_csv(filename)
+    
