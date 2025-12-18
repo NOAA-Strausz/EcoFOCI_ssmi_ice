@@ -161,7 +161,7 @@ else:
     dist_type = 'Box'
 years = args.years
 #put desired years in list
-#years = list(range(args.years[0],args.years[1]+1))
+years = list(range(args.years[0],args.years[1]+1))
 files = []
 
 if args.latest:
