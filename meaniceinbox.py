@@ -159,9 +159,11 @@ if args.radius:
 else:
     nlat, slat, wlon, elon = find_box(inlat, inlon, args.distance, nm=args.nm)
     dist_type = 'Box'
-years = args.years
-#put desired years in list
-years = list(range(args.years[0],args.years[1]+1))
+
+if args.years:
+    years = args.years
+    #put desired years in list
+    years = list(range(args.years[0],args.years[1]+1))
 files = []
 
 if args.latest:
