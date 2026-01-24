@@ -67,7 +67,7 @@ moorings = {'bs2':[56.869,-164.050], 'bs4':[57.895,-168.878], 'bs5':[59.911,-171
          'bs8':[62.194,-174.688], 'bs14':[64.00,-167.933], 'ck1':[70.838,-163.125], 'ck2':[71.231,-164.223],
          'ck3':[71.828,-166.070], 'ck4':[71.038,-160.514], 'ck5':[71.203,-158.011],
          'ck9':[72.464,-156.548], 'ck10':[70.211,-167.787],
-         'ck11':[70.013,-166.855], 'ck12':[67.911,-168.195]}
+         'ck11':[70.013,-166.855], 'ck12':[67.911,-168.195], 'ck15':[72.310,-167.271]}
 
 if args.mooring:
     if args.mooring in moorings:
@@ -274,7 +274,7 @@ else:
     if len(years) > 1:
         filename = ("meaniceinbox_" + mooring + pointname + str(inlat) + lat_suffix + "_" + 
                 str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + 
-                "_" + dist_type + "_" + str(years[0]) + "-" + str(years[1]) + ".csv")
+                "_" + dist_type + "_" + str(years[0]) + "-" + str(years[-1]) + ".csv")
     else:
         filename = ("meaniceinbox_" + mooring + pointname + str(inlat) + lat_suffix + "_" + 
                 str(abs(inlon)) + lon_suffix + "_" + str(args.distance) + units + 
